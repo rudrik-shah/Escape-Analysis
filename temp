@@ -1,0 +1,48 @@
+import soot.*;
+import soot.jimple.*;
+import soot.jimple.toolkits.annotation.*;
+import soot.options.Options;
+
+public class EscapeAnalysis {
+
+    public static void main(String[] args) {
+        // Set up Soot options
+        Options.v().set_whole_program(true);
+        Options.v().set_keep_line_number(true);
+        Options.v().set_output_format(Options.output_format_jimple);
+
+        // Load the class you want to analyze
+        SootClass appClass = Scene.v().loadClassAndSupport("com.example.MyClass");
+
+        // Load the main method of the class
+        SootMethod mainMethod = appClass.getMethodByName("main");
+
+        // Set the main method as the entry point for Soot
+        Scene.v().setEntryPoints(Collections.singletonList(mainMethod));
+
+        // Perform the analysis
+        PackManager.v().runPacks();
+
+        // Retrieve the escape information for each local variable
+        EscapeAnalysisResults analysisResults = new EscapeAnalysisResults();
+        LocalDefs localDefs = LocalDefs.Factory.newLocalDefs(mainMethod.getActiveBody());
+        for (Unit unit : mainMethod.getActiveBody().getUnits()) {
+            if (unit instanceof DefinitionStmt) {
+                DefinitionStmt defStmt = (DefinitionStmt) unit;
+                Value lhs = defStmt.getLeftOp();
+                Value rhs = defStmt.getRightOp();
+                if (lhs instanceof Local && rhs instanceof AnyNewExpr) {
+                    EscapeAnalysisTag tag = (EscapeAnalysisTag) rhs.getTag("EscapeAnalysisTag");
+                    if (tag != null) {
+                        analysisResults.addEscapeInfo((Local) lhs, tag.getEscapeStatus());
+                    } else {
+                        analysisResults.addEscapeInfo((Local) lhs, EscapeStatus.UNKNOWN);
+                    }
+                }
+            }
+        }
+
+        // Print out the escape information for each local variable
+        System.out.println("Escape Analysis Results:");
+        for (Local local : analysisResults.getLocalVariables()) {
+            Escape
